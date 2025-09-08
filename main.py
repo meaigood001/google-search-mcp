@@ -31,6 +31,7 @@ Usage:
 import os
 from typing import Dict, Any, Optional
 from mcp.server.fastmcp import FastMCP
+from mcp.server.auth.provider import TokenVerifier, AccessToken
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from dotenv import load_dotenv
@@ -49,33 +50,44 @@ HTTP_PORT = int(os.getenv('HTTP_PORT', '9000'))
 API_TOKEN = os.getenv('API_TOKEN')
 ENABLE_AUTH = os.getenv('ENABLE_AUTH', 'false').lower() == 'true'
 
-def verify_auth_token(token: Optional[str]) -> bool:
+class SimpleTokenVerifier(TokenVerifier):
     """
-    Verify the authentication token.
-    
-    Args:
-        token (Optional[str]): The bearer token to verify
-        
-    Returns:
-        bool: True if token is valid, False otherwise
+    Simple token verifier that checks if the token matches a predefined API token.
     """
-    if not ENABLE_AUTH:
-        return True
     
-    if not token:
-        return False
+    def __init__(self, api_token: str):
+        self.api_token = api_token
+    
+    async def verify_token(self, token: str) -> Optional[AccessToken]:
+        """
+        Verify the token against the predefined API token.
         
-    return token == API_TOKEN
+        Args:
+            token: The bearer token to verify
+            
+        Returns:
+            AccessToken if valid, None otherwise
+        """
+        if token == self.api_token:
+            return AccessToken(
+                token=token,
+                client_id="api-client",
+                scopes=["api.access"]
+            )
+        return None
 
-# Initialize FastMCP with authentication
-mcp = FastMCP(
-    "GoogleSearch",
-    auth_token=API_TOKEN if ENABLE_AUTH else None
-)
+# Create token verifier if authentication is enabled
+token_verifier = SimpleTokenVerifier(API_TOKEN) if ENABLE_AUTH and API_TOKEN else None
+
+# Initialize FastMCP with authentication if enabled
+if ENABLE_AUTH and API_TOKEN:
+    mcp = FastMCP("GoogleSearch", token_verifier=token_verifier, host=HTTP_HOST, port=HTTP_PORT)
+else:
+    mcp = FastMCP("GoogleSearch", host=HTTP_HOST, port=HTTP_PORT)
 
 
 @mcp.tool()
-async def search_google(query: str, num_results: int = 5, auth_token: Optional[str] = None) -> Dict[str, Any]:
+async def search_google(query: str, num_results: int = 5) -> Dict[str, Any]:
     """
     Perform a Google search and return formatted results.
     
@@ -85,7 +97,6 @@ async def search_google(query: str, num_results: int = 5, auth_token: Optional[s
     Args:
         query (str): The search query string
         num_results (int, optional): Number of search results to return. Defaults to 5.
-        auth_token (Optional[str]): Authentication token for API access
         
     Returns:
         Dict[str, Any]: A dictionary containing:
@@ -94,13 +105,6 @@ async def search_google(query: str, num_results: int = 5, auth_token: Optional[s
             - total_results (str): Total number of results found (when successful)
             - error (str): Error message (when unsuccessful)
     """
-    # Verify authentication
-    if not verify_auth_token(auth_token):
-        return {
-            "success": False,
-            "error": "Authentication failed: Invalid or missing API token",
-            "results": []
-        }
     
     try:
         # Initialize Google Custom Search API
@@ -157,8 +161,5 @@ if __name__ == "__main__":
     else:
         print("Authentication: DISABLED (insecure mode)")
     
-    mcp.run(
-        transport="streamable-http",
-        host=HTTP_HOST,
-        port=HTTP_PORT
-    )
+    # 使用 FastMCP 的 run 方法启动服务器
+    mcp.run(transport="streamable-http")
