@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "google-search-dev": {
+      "url": "http://127.0.0.1:9000/mcp/",
+      "transport": "streamable-http",
+      "description": "开发环境 - 无认证"
+    },
+    "google-search-prod": {
+      "url": "https://your-domain.com/mcp/",
+      "transport": "streamable-http",
+      "headers": {
+        "Authorization": "Bearer ${API_TOKEN}",
+        "Content-Type": "application/json"
+      },
+      "description": "生产环境 - 需要Bearer Token认证"
+    },
+    "google-search-custom": {
+      "url": "http://127.0.0.1:9000/mcp/",
+      "transport": "streamable-http",
+      "headers": {
+        "Authorization": "Bearer ${API_TOKEN}",
+        "User-Agent": "Custom-MCP-Client/1.0",
+        "X-Client-ID": "your-client-id"
+      },
+      "timeout": 30,
+      "description": "自定义配置 - 带额外头部信息"
+    }
+  }
+}
