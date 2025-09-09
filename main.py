@@ -32,6 +32,7 @@ import os
 from typing import Dict, Any, Optional
 from mcp.server.fastmcp import FastMCP
 from mcp.server.auth.provider import TokenVerifier, AccessToken
+from mcp.server.auth.settings import AuthSettings
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from dotenv import load_dotenv
@@ -76,12 +77,20 @@ class SimpleTokenVerifier(TokenVerifier):
             )
         return None
 
-# Create token verifier if authentication is enabled
-token_verifier = SimpleTokenVerifier(API_TOKEN) if ENABLE_AUTH and API_TOKEN else None
-
 # Initialize FastMCP with authentication if enabled
 if ENABLE_AUTH and API_TOKEN:
-    mcp = FastMCP("GoogleSearch", token_verifier=token_verifier, host=HTTP_HOST, port=HTTP_PORT)
+    # Create token verifier only when authentication is properly enabled
+    token_verifier = SimpleTokenVerifier(API_TOKEN)
+    
+    # Create auth settings with required URLs
+    # Using the server's own URL as both issuer and resource server for simplicity
+    server_url = f"http://{HTTP_HOST}:{HTTP_PORT}"
+    auth_settings = AuthSettings(
+        issuer_url=f"{server_url}/",
+        resource_server_url=f"{server_url}/mcp/"
+    )
+    
+    mcp = FastMCP("GoogleSearch", token_verifier=token_verifier, auth=auth_settings, host=HTTP_HOST, port=HTTP_PORT)
 else:
     mcp = FastMCP("GoogleSearch", host=HTTP_HOST, port=HTTP_PORT)
 

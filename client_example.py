@@ -9,8 +9,23 @@ FastMCP客户端连接Google Search MCP服务器的示例
 
 使用方法：
 1. 设置环境变量（可选）:
+   # Google API配置
+   export GOOGLE_API_KEY="your_google_api_key_here"
+   export GOOGLE_CSE_ID="your_google_cse_id_here"
+   
+   # HTTP服务器配置
+   export HTTP_HOST="127.0.0.1"
+   export HTTP_PORT="9000"
+   
+   # 认证配置
+   export API_TOKEN="your_api_token_here"
+   export ENABLE_AUTH="true"
+   
+   # 其他配置
    export CLIENT_API_TOKEN="your_api_token_here"
    export SERVER_URL="http://127.0.0.1:9000/mcp/"
+   export TIMEOUT="30"
+   export USER_AGENT="FastMCP-Client/1.0"
 
 2. 运行示例:
    python client_example.py
@@ -24,17 +39,36 @@ import asyncio
 import os
 import json
 import argparse
+from dotenv import load_dotenv
 from fastmcp import Client
 from fastmcp.client.transports import StreamableHttpTransport
+
+# Load configuration from .env
+load_dotenv()
+
+# Google API configuration
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+GOOGLE_CSE_ID = os.getenv('GOOGLE_CSE_ID')
+
+# HTTP Stream server configuration
+HTTP_HOST = os.getenv('HTTP_HOST', '127.0.0.1')
+HTTP_PORT = int(os.getenv('HTTP_PORT', '9000'))
+
+# Authentication configuration
+API_TOKEN = os.getenv('API_TOKEN')
+ENABLE_AUTH = os.getenv('ENABLE_AUTH', 'false').lower() == 'true'
 
 
 def load_env_config():
     """从环境变量加载配置"""
     return {
-        "api_token": os.getenv("CLIENT_API_TOKEN"),
-        "server_url": os.getenv("SERVER_URL", "http://127.0.0.1:9000/mcp/"),
+        "api_token": API_TOKEN or os.getenv("CLIENT_API_TOKEN"),
+        "server_url": os.getenv("SERVER_URL", f"http://{HTTP_HOST}:{HTTP_PORT}/mcp/"),
         "timeout": float(os.getenv("TIMEOUT", "30")),
-        "user_agent": os.getenv("USER_AGENT", "FastMCP-Client/1.0")
+        "user_agent": os.getenv("USER_AGENT", "FastMCP-Client/1.0"),
+        "google_api_key": GOOGLE_API_KEY,
+        "google_cse_id": GOOGLE_CSE_ID,
+        "enable_auth": ENABLE_AUTH
     }
 
 
@@ -45,6 +79,11 @@ async def connect_without_auth():
     print("=== 无认证连接示例 ===")
     
     env_config = load_env_config()
+    
+    # 如果启用了认证，则跳过无认证连接
+    if env_config["enable_auth"]:
+        print("已启用认证，跳过无认证连接示例")
+        return
     
     # 服务器配置（无认证）
     config = {
@@ -93,9 +132,14 @@ async def connect_with_auth():
     env_config = load_env_config()
     api_token = env_config["api_token"]
     
+    # 如果未启用认证，则跳过认证连接示例
+    if not env_config["enable_auth"]:
+        print("未启用认证，跳过认证连接示例")
+        return
+    
     if not api_token:
-        print("警告: 请设置CLIENT_API_TOKEN环境变量")
-        print("示例: export CLIENT_API_TOKEN='your_api_token_here'")
+        print("警告: 请设置API_TOKEN环境变量")
+        print("示例: export API_TOKEN='your_api_token_here'")
         return
     
     # 服务器配置（带认证）
@@ -151,8 +195,13 @@ async def connect_with_custom_config():
     env_config = load_env_config()
     api_token = env_config["api_token"]
     
+    # 如果未启用认证，则跳过自定义认证连接示例
+    if not env_config["enable_auth"]:
+        print("未启用认证，跳过自定义认证连接示例")
+        return
+    
     if not api_token:
-        print("警告: 请设置CLIENT_API_TOKEN环境变量")
+        print("警告: 请设置API_TOKEN环境变量")
         return
     
     try:
@@ -299,6 +348,9 @@ async def main():
     env_config = load_env_config()
     print(f"服务器URL: {env_config['server_url']}")
     print(f"API令牌: {'已设置' if env_config['api_token'] else '未设置'}")
+    print(f"Google API密钥: {'已设置' if env_config['google_api_key'] else '未设置'}")
+    print(f"Google CSE ID: {'已设置' if env_config['google_cse_id'] else '未设置'}")
+    print(f"认证状态: {'已启用' if env_config['enable_auth'] else '未启用'}")
     print(f"超时时间: {env_config['timeout']}秒")
     print("-" * 60)
     
